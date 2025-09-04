@@ -193,6 +193,7 @@ export default function Employee() {
                 <th>Designation</th>
                 <th>Role</th>
                 <th>Email</th>
+                <th>User ID</th>
                 <th>Phone</th>
                 <th>DOB</th>
                 <th>Date Of Joining</th>
@@ -209,6 +210,7 @@ export default function Employee() {
                   <td>{row.designation || '-'}</td>
                   <td>{row.roleName || '-'}</td>
                   <td>{row.registered_email || '-'}</td>
+                  <td>{row.user_id || '-'}</td>
                   <td>{row.phone_number || '-'}</td>
                   <td>{row.dob ? new Date(row.dob).toLocaleDateString() : '-'}</td>
                   <td>{row.doj ? new Date(row.doj).toLocaleDateString() : '-'}</td>
