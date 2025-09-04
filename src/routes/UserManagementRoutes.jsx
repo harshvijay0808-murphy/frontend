@@ -14,6 +14,7 @@ const Employee = Loadable(lazy(() => import('views/user_management/Employee')));
 const Document = Loadable(lazy(() => import('views/user_management/Document')));
 const WorkflowTemplate = Loadable(lazy(() => import('views/user_management/WorkflowTemplate')));
 const WorkflowStep = Loadable(lazy(() => import('views/user_management/WorkflowStep')));
+const RoleRights = Loadable(lazy(() => import('views/user_management/RoleRights')));
 // ==============================|| COMPONENT ROUTING ||============================== //
 
 const UserManagementRoutes = {
@@ -62,6 +63,10 @@ const UserManagementRoutes = {
               path: 'role',
               element: <Role />
             },
+            {
+              path: 'roleRights',
+              element: <RoleRights />
+            }
 
           ]
         }
