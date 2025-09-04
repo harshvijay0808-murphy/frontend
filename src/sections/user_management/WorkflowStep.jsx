@@ -52,9 +52,10 @@ export default function WorkflowSteps() {
 
   // Open modal for adding
   const handleAdd = () => {
+    const lastStep = steps.filter(s => s.workflow_template_id == selectedWorkflow).length;
     setCurrentStep({
       workflow_template_id: selectedWorkflow || '',
-      step_number: steps.filter(s => s.workflow_template_id == selectedWorkflow).length + 1,
+      step_number: lastStep + 1,
       name: '',
       assigned_department: null,
       assigned_user_id: null,
@@ -167,7 +168,7 @@ export default function WorkflowSteps() {
       allowOverflow: true,
       button: true
     }
-  ].filter(Boolean); // remove false column when workflow selected
+  ].filter(Boolean);
 
   return (
     <MainCard title={<h3 className="mb-0 text-center fw-bold text-primary">Workflow Steps</h3>}>
@@ -224,32 +225,49 @@ export default function WorkflowSteps() {
             </Form.Group>
 
             <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Workflow Template</Form.Label>
-              <Form.Select
-                name="workflow_template_id"
-                value={currentStep.workflow_template_id || ""}
-                onChange={handleChange}
-                required
-                disabled={!!selectedWorkflow}
-              >
-                <option value="">-- Select Workflow --</option>
-                {workflows.map(ws => (
-                  <option key={ws.workflow_template_id} value={ws.workflow_template_id}>
-                    {ws.name}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group className="mb-3">
               <Form.Label className="fw-bold">Step Number</Form.Label>
-              <Form.Control type="number" name="step_number" value={currentStep.step_number || ''} onChange={handleChange} min={1} required />
+              <Form.Control
+                type="number"
+                name="step_number"
+                value={currentStep.step_number || ''}
+                onChange={handleChange}
+                min={1}
+                required
+                disabled={currentStep.stepAction === 'append'}
+              />
             </Form.Group>
 
             <Form.Group className="mb-3">
               <Form.Label className="fw-bold">Step Number Action</Form.Label>
-              <Form.Check type="radio" label="Keep step number (Append)" name="stepAction" value="append" checked={currentStep.stepAction === 'append'} onChange={handleChange} />
-              <Form.Check type="radio" label="Renumber steps" name="stepAction" value="renumber" checked={currentStep.stepAction === 'renumber'} onChange={handleChange} />
+              <Form.Check
+                type="radio"
+                label="Append (auto last step)"
+                name="stepAction"
+                value="append"
+                checked={currentStep.stepAction === 'append'}
+                onChange={() => {
+                  const lastStep = steps.filter(s => s.workflow_template_id == currentStep.workflow_template_id).length;
+                  setCurrentStep(prev => ({
+                    ...prev,
+                    stepAction: 'append',
+                    step_number: lastStep + 1
+                  }));
+                }}
+              />
+              <Form.Check
+                type="radio"
+                label="Insert and Renumber"
+                name="stepAction"
+                value="renumber"
+                checked={currentStep.stepAction === 'renumber'}
+                onChange={() => {
+                  setCurrentStep(prev => ({
+                    ...prev,
+                    stepAction: 'renumber',
+                    step_number: '' // clear for manual entry
+                  }));
+                }}
+              />
             </Form.Group>
 
             <Form.Group className="mb-3">
@@ -281,4 +299,3 @@ export default function WorkflowSteps() {
     </MainCard>
   );
 }
-// change
