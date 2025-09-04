@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import axios from 'axios';
 import MainCard from 'components/MainCard';
-import { Modal, Button, Form, Badge } from 'react-bootstrap';
+import { Modal, Button, Form } from 'react-bootstrap';
+import { useForm } from 'react-hook-form';
+import { userValidationSchema } from 'utils/validationSchema';
 
 export default function Employee() {
   const [employees, setEmployees] = useState([]);
@@ -10,24 +12,12 @@ export default function Employee() {
   const [roles, setRoles] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [currentData, setCurrentData] = useState({
-    emp_id: '',
-    name: '',
-    dep_id: '',
-    designation: '',
-    role_id: '',
-    registered_email: '',
-    phone_number: '',
-    address: '',
-    aadhar_num: '',
-    pan_num: '',
-    image_aadhar: '',
-    image_pan: '',
-    dob: '',
-    doj: '',
-    activeYN: 1
-  });
+  const [currentData, setCurrentData] = useState({});
   const [loading, setLoading] = useState(false);
+
+  const { register, handleSubmit, setValue, reset, watch, formState: { errors } } = useForm({
+    defaultValues: currentData
+  });
 
   // Fetch employees
   const fetchEmployees = async () => {
@@ -43,7 +33,7 @@ export default function Employee() {
     }
   };
 
-  // Fetch departments and roles for dropdowns
+  // Fetch departments & roles
   const fetchDepartmentsAndRoles = async () => {
     try {
       const [depRes, roleRes] = await Promise.all([
@@ -62,8 +52,11 @@ export default function Employee() {
     fetchDepartmentsAndRoles();
   }, []);
 
+  const formatDate = (date) => (date ? new Date(date).toISOString().split('T')[0] : '');
+
+  // Add new employee
   const handleAdd = () => {
-    setCurrentData({
+    const emptyData = {
       emp_id: '',
       name: '',
       dep_id: '',
@@ -73,23 +66,38 @@ export default function Employee() {
       phone_number: '',
       address: '',
       aadhar_num: '',
-      pan_num: '',
       image_aadhar: '',
+      pan_num: '',
       image_pan: '',
       dob: '',
       doj: '',
-      activeYN: 1
-    });
+      activeYN: 'Y'
+    };
+    setCurrentData(emptyData);
     setIsEditMode(false);
     setShowModal(true);
+    reset(emptyData);
   };
 
+  // Edit employee
   const handleEdit = (row) => {
-    setCurrentData(row);
+    const editData = {
+      ...row,
+      dep_id: row.dep_id || '',
+      role_id: row.role_id || '',
+      dob: formatDate(row.dob),
+      doj: formatDate(row.doj),
+      image_aadhar: row.image_aadhar || '',
+      image_pan: row.image_pan || '',
+      activeYN: row.activeYN || 'Y'
+    };
+    setCurrentData(editData);
     setIsEditMode(true);
     setShowModal(true);
+    reset(editData);
   };
 
+  // Delete employee
   const handleDelete = async (row) => {
     const result = await Swal.fire({
       title: 'Are you sure?',
@@ -101,49 +109,62 @@ export default function Employee() {
       confirmButtonText: 'Yes, delete it!'
     });
 
-    if (result.isConfirmed) {
-      try {
-        await axios.delete(`http://localhost:5000/api/employees/${row.emp_id}`);
-        setEmployees(employees.filter((e) => e.emp_id !== row.emp_id));
-        Swal.fire('Deleted!', 'Employee has been deleted.', 'success');
-      } catch (err) {
-        console.error(err);
-        Swal.fire('Error', 'Failed to delete employee', 'error');
-      }
+    if (!result.isConfirmed) return;
+
+    try {
+      await axios.delete(`http://localhost:5000/api/employees/${row.emp_id}`);
+      setEmployees(employees.filter((e) => e.emp_id !== row.emp_id));
+      Swal.fire('Deleted!', 'Employee has been deleted.', 'success');
+    } catch (err) {
+      console.error(err);
+      Swal.fire('Error', 'Failed to delete employee', 'error');
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setCurrentData((prev) => ({ ...prev, [name]: value }));
+  // Toggle Active / Inactive
+  const handleActiveToggle = () => {
+    const newStatus = watch('activeYN') === 'Y' ? 'N' : 'Y';
+    setValue('activeYN', newStatus);
+    setCurrentData(prev => ({ ...prev, activeYN: newStatus }));
   };
 
   // Submit form
   const onSubmit = async (data) => {
     const formData = new FormData();
+
+    // Append all non-file fields
     Object.keys(data).forEach((key) => {
-      if (data[key] !== undefined && data[key] !== null) formData.append(key, data[key]);
+      if (key === "image_aadhar" || key === "image_pan") return; // skip file fields
+      if (data[key] !== undefined && data[key] !== null) {
+        formData.append(key, data[key]);
+      }
     });
 
-    if (data.image_aadhar && data.image_aadhar[0]) formData.append('image_aadhar', data.image_aadhar[0]);
-    if (data.image_pan && data.image_pan[0]) formData.append('image_pan', data.image_pan[0]);
+    // Only append files if the user selected a new one
+    if (data.image_aadhar && data.image_aadhar[0]) {
+      formData.append("image_aadhar", data.image_aadhar[0]);
+    }
+    if (data.image_pan && data.image_pan[0]) {
+      formData.append("image_pan", data.image_pan[0]);
+    }
 
     try {
       if (isEditMode && currentData.emp_id) {
         await axios.put(`http://localhost:5000/api/employees/${currentData.emp_id}`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+          headers: { "Content-Type": "multipart/form-data" }
         });
-        Swal.fire('Updated!', 'Employee has been updated.', 'success');
+        Swal.fire("Updated!", "Employee has been updated.", "success");
       } else {
         await axios.post(`http://localhost:5000/api/employees`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+          headers: { "Content-Type": "multipart/form-data" }
         });
-        Swal.fire('Added!', 'New employee has been added.', 'success');
+        Swal.fire("Added!", "New employee has been added.", "success");
       }
       setShowModal(false);
+      fetchEmployees();
     } catch (err) {
       console.error(err.response?.data || err.message);
-      Swal.fire('Error', err.response?.data?.message || 'Failed to save employee', 'error');
+      Swal.fire("Error", err.response?.data?.message || "Failed to save employee", "error");
     }
   };
 
@@ -152,9 +173,8 @@ export default function Employee() {
   return (
     <MainCard title={<h3 className="mb-0 text-center fw-bold text-primary">Employee List</h3>}>
       <div className="d-flex justify-content-end mb-4">
-        <Button variant="outline-primary" className="fw-bold shadow-sm" onClick={handleAdd}>
-          <i className="ti ti-plus me-2" />
-          Add Employee
+        <Button variant="outline-primary" onClick={handleAdd}>
+          <i className="ti ti-plus me-2" /> Add Employee
         </Button>
       </div>
 
@@ -170,30 +190,40 @@ export default function Employee() {
                 <th>#</th>
                 <th>Name</th>
                 <th>Department</th>
+                <th>Designation</th>
                 <th>Role</th>
                 <th>Email</th>
                 <th>Phone</th>
+                <th>DOB</th>
+                <th>Date Of Joining</th>
+                <th>Status</th>
                 <th>Action</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className='text-center'>
               {employees.map((row, index) => (
                 <tr key={row.emp_id}>
                   <td className="text-center">{index + 1}</td>
-                  <td>{row.name}</td>
-                  <td>{row.departmentName}</td>
-                  <td>{row.roleName}</td>
-                  <td>{row.registered_email}</td>
-                  <td>{row.phone_number}</td>
+                  <td>{row.name || '-'}</td>
+                  <td>{row.departmentName || '-'}</td>
+                  <td>{row.designation || '-'}</td>
+                  <td>{row.roleName || '-'}</td>
+                  <td>{row.registered_email || '-'}</td>
+                  <td>{row.phone_number || '-'}</td>
+                  <td>{row.dob ? new Date(row.dob).toLocaleDateString() : '-'}</td>
+                  <td>{row.doj ? new Date(row.doj).toLocaleDateString() : '-'}</td>
+                  <td className="text-center">
+                    <span className={`badge ${row.activeYN === 'Y' ? 'bg-success' : 'bg-secondary'}`}>
+                      {row.activeYN === 'Y' ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
                   <td className="text-center">
                     <div className="d-flex gap-2 justify-content-center">
                       <Button variant="outline-success" size="sm" onClick={() => handleEdit(row)}>
-                        <i className="ti ti-pencil me-1" />
-                        Edit
+                        <i className="ti ti-pencil me-1" /> Edit
                       </Button>
                       <Button variant="outline-danger" size="sm" onClick={() => handleDelete(row)}>
-                        <i className="ti ti-trash me-1" />
-                        Delete
+                        <i className="ti ti-trash me-1" /> Delete
                       </Button>
                     </div>
                   </td>
@@ -204,45 +234,83 @@ export default function Employee() {
         </div>
       )}
 
+      {/* Modal */}
       <Modal show={showModal} onHide={() => setShowModal(false)} centered backdrop="static">
         <Modal.Header closeButton className="bg-primary text-white">
           <Modal.Title>{isEditMode ? 'Edit Employee' : 'Add Employee'}</Modal.Title>
         </Modal.Header>
-        <Form onSubmit={handleSubmit}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <Modal.Body>
+            {/* Name */}
             <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Name</Form.Label>
-              <Form.Control
-                type="text"
-                name="name"
-                value={currentData.name}
-                onChange={handleChange}
-                required
-              />
+              <Form.Label>Name</Form.Label>
+              <Form.Control type="text" {...register('name', userValidationSchema.name)} />
+              {errors.name && <small className="text-danger">{errors.name.message}</small>}
             </Form.Group>
 
+            {/* Department */}
             <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Department</Form.Label>
-              <Form.Select name="dep_id" value={currentData.dep_id} onChange={handleChange} required>
+              <Form.Label>Department</Form.Label>
+              <Form.Select {...register('dep_id', userValidationSchema.dep_id)}>
                 <option value="">Select Department</option>
-                {departments.map((d) => (
+                {departments.map(d => (
                   <option key={d.id} value={d.id}>{d.departmentName}</option>
                 ))}
               </Form.Select>
+              {errors.dep_id && <small className="text-danger">{errors.dep_id.message}</small>}
             </Form.Group>
 
+            {/* Role */}
             <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Role</Form.Label>
-              <Form.Select name="role_id" value={currentData.role_id} onChange={handleChange} required>
+              <Form.Label>Role</Form.Label>
+              <Form.Select {...register('role_id', userValidationSchema.role_id)}>
                 <option value="">Select Role</option>
-                {roles.map((r) => (
+                {roles.map(r => (
                   <option key={r.id} value={r.id}>{r.name}</option>
                 ))}
               </Form.Select>
+              {errors.role_id && <small className="text-danger">{errors.role_id.message}</small>}
             </Form.Group>
 
+            {/* Email */}
             <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Email</Form.Label>
+              <Form.Label>Email</Form.Label>
+              <Form.Control type="email" {...register('registered_email', userValidationSchema.registered_email)} />
+              {errors.registered_email && <small className="text-danger">{errors.registered_email.message}</small>}
+            </Form.Group>
+
+            {/* Phone */}
+            <Form.Group className="mb-3">
+              <Form.Label>Phone Number</Form.Label>
+              <Form.Control type="text" {...register('phone_number', userValidationSchema.phone_number)} />
+              {errors.phone_number && <small className="text-danger">{errors.phone_number.message}</small>}
+            </Form.Group>
+
+            {/* Designation */}
+            <Form.Group className="mb-3">
+              <Form.Label>Designation</Form.Label>
+              <Form.Control type="text" {...register('designation', userValidationSchema.designation)} />
+              {errors.designation && <small className="text-danger">{errors.designation.message}</small>}
+            </Form.Group>
+
+            {/* Aadhaar Number & Image */}
+            <Form.Group className="mb-3">
+              <Form.Label>Aadhaar Number</Form.Label>
+              <Form.Control type="text" {...register('aadhar_num', userValidationSchema.aadhar_num)} />
+              {errors.aadhar_num && <small className="text-danger">{errors.aadhar_num.message}</small>}
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Aadhaar Image</Form.Label>
+              {currentData.image_aadhar && (
+                <div className="mb-2">
+                  <img
+                    src={`http://localhost:5000/${currentData.image_aadhar}`}
+                    alt="Aadhaar"
+                    style={{ width: '150px', marginBottom: '10px' }}
+                  />
+                  <div>Current File: <strong>{currentData.image_aadhar}</strong></div>
+                </div>
+              )}
               <Form.Control
                 type="file"
                 {...register('image_aadhar', {
@@ -253,7 +321,7 @@ export default function Employee() {
                       return isEditMode ? true : 'Aadhaar image is required';
                     }
 
-                    console.log(isEditMode)
+                    // console.log(isEditMode)
 
                     const file = fileList[0];
 
@@ -279,8 +347,24 @@ export default function Employee() {
               {errors.image_aadhar && <small className="text-danger">{errors.image_aadhar.message}</small>}
             </Form.Group>
 
+            {/* PAN Number & Image */}
             <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Phone Number</Form.Label>
+              <Form.Label>PAN Number</Form.Label>
+              <Form.Control type="text" {...register('pan_num', userValidationSchema.pan_num)} />
+              {errors.pan_num && <small className="text-danger">{errors.pan_num.message}</small>}
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>PAN Image</Form.Label>
+              {currentData.image_pan && (
+                <div className="mb-2">
+                  <img
+                    src={`http://localhost:5000/${currentData.image_pan}`}
+                    alt="PAN"
+                    style={{ width: '150px', marginBottom: '10px' }}
+                  />
+                  <div>Current File: <strong>{currentData.image_pan}</strong></div>
+                </div>
+              )}
               <Form.Control
                 type="file"
                 {...register('image_pan', {
@@ -291,7 +375,7 @@ export default function Employee() {
                       return isEditMode ? true : 'Pan image is required';
                     }
 
-                    console.log(isEditMode)
+                    // console.log(isEditMode)
 
                     const file = fileList[0];
 
@@ -312,27 +396,49 @@ export default function Employee() {
                   }
                 })}
               />
+
+
+              {errors.image_pan && <small className="text-danger">{errors.image_pan.message}</small>}
             </Form.Group>
 
             {/* DOB */}
-            <Form.Group className="mb-3">
+            {/* <Form.Group className="mb-3">
               <Form.Label>Date of Birth</Form.Label>
               <Form.Control type="date" {...register('dob', userValidationSchema.dob)} />
               {errors.dob && <small className="text-danger">{errors.dob.message}</small>}
-            </Form.Group>
+            </Form.Group> */}
 
             {/* DOJ */}
             <Form.Group className="mb-3">
-              <Form.Label>Date of Joining</Form.Label>
-              <Form.Control type="date" {...register('doj', userValidationSchema.doj)} />
-              {errors.doj && <small className="text-danger">{errors.doj.message}</small>}
+              <Form.Label>Date of Birth</Form.Label>
+              <Form.Control type="date" {...register('dob', {
+                required: 'Date of Birth is required',
+                pattern: { value: /^\d{4}-\d{2}-\d{2}$/, message: 'Date of Birth must be in YYYY-MM-DD format' },
+                validate: (value) => {
+                  const today = new Date();
+                  const dob = new Date(value);
+                  let age = today.getFullYear() - dob.getFullYear();
+                  const m = today.getMonth() - dob.getMonth();
+                  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+                  return age >= 18 || 'Employee must be at least 18 years old';
+                }
+              })} />
+              {errors.dob && <small className="text-danger">{errors.dob.message}</small>}
             </Form.Group>
 
-            {/* Address */}
+            {/* Date of Joining */}
             <Form.Group className="mb-3">
-              <Form.Label>Address</Form.Label>
-              <Form.Control type="text" {...register('address', userValidationSchema.address)} />
-              {errors.address && <small className="text-danger">{errors.address.message}</small>}
+              <Form.Label>Date of Joining</Form.Label>
+              <Form.Control type="date" {...register('doj', {
+                required: 'Date of Joining is required',
+                pattern: { value: /^\d{4}-\d{2}-\d{2}$/, message: 'Date of Joining must be in YYYY-MM-DD format' },
+                validate: (value) => {
+                  const today = new Date();
+                  const doj = new Date(value);
+                  return doj <= today || 'Date of Joining cannot be in the future';
+                }
+              })} />
+              {errors.doj && <small className="text-danger">{errors.doj.message}</small>}
             </Form.Group>
 
             {/* Active Toggle */}
@@ -348,9 +454,7 @@ export default function Employee() {
 
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
-            <Button type="submit" variant="primary" className="fw-bold">
-              {isEditMode ? 'Save Changes' : 'Add Employee'}
-            </Button>
+            <Button type="submit" variant="primary">{isEditMode ? 'Save Changes' : 'Add Employee'}</Button>
           </Modal.Footer>
         </Form>
       </Modal>
