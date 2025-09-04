@@ -180,7 +180,7 @@ export default function WorkflowSteps() {
           style={{ maxWidth: "300px" }}
         >
           <option value="">-- Select Workflow --</option>
-          {workflows.map(ws => (
+          {workflows.filter(ws => ws.status === 'active').map(ws => (
             <option key={ws.workflow_template_id} value={ws.workflow_template_id}>
               {ws.name}
             </option>
@@ -200,7 +200,11 @@ export default function WorkflowSteps() {
       {/* Steps Table */}
       <DataTable
         columns={columns}
-        data={steps.filter(s => !selectedWorkflow || s.workflow_template_id == selectedWorkflow)}
+        data={steps.filter(s => {
+          const workflow = workflows.find(w => w.workflow_template_id === s.workflow_template_id);
+          return workflow?.status === 'active' && (!selectedWorkflow || s.workflow_template_id == selectedWorkflow);
+        })}
+        // data={steps.filter(s => !selectedWorkflow || s.workflow_template_id == selectedWorkflow)}
         progressPending={loading}
         pagination
         highlightOnHover

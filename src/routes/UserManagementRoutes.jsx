@@ -56,10 +56,6 @@ const UserManagementRoutes = {
               element: <User />
             },
             {
-              path: 'role_category',
-              element: <RoleCategory />
-            },
-            {
               path: 'role',
               element: <Role />
             },

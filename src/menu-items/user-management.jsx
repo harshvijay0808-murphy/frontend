@@ -59,12 +59,6 @@ const userManagegment = {
           url: '/user_management/role'
         },
         {
-          id: 'role_category',
-          title: 'Role Category',
-          type: 'item',
-          url: '/user_management/role_category'
-        },
-        {
           id: 'role_rights',
           title: 'Role Rights',
           type: 'item',

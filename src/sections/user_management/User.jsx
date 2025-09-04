@@ -3,135 +3,114 @@ import $ from 'jquery';
 import 'datatables.net-bs5';
 import 'datatables.net-bs5/css/dataTables.bootstrap5.min.css';
 import axios from "axios";
-import Swal from "sweetalert2";
 
 import MainCard from 'components/MainCard';
-import { Modal, Button, Form } from 'react-bootstrap'; // make sure react-bootstrap is installed
+import { Button } from 'react-bootstrap';
 
 export default function BasicDataTable() {
     const tableRef = useRef(null);
-    const [showModal, setShowModal] = useState(false);
-    const [currentData, setCurrentData] = useState({ id: '', firstName: '', lastName: '', username: '' });
+    const [users, setUsers] = useState([]);
 
+    // Fields to exclude
+    const excludedFields = ['password', 'otp', 'otp_expiry', 'updatedAt'];
 
-     const fetchRoles = async () => {
-    try {
-      const res = await axios.get("http://localhost:5000/api/auth");
-      setRoles(res.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+    // Mapping API keys to friendly column names
+    const columnNames = {
+        id: "ID",
+        name: "Full Name",
+        email: "Email",
+        user_id: "User ID",
+        mobile: "Mobile",
+        createdAt: "Created At",
+    };
 
-
+    // Fetch users from API
+    const fetchUsers = async () => {
+        try {
+            const res = await axios.get("http://localhost:5000/api/users");
+            setUsers(res.data.data);
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     useEffect(() => {
-        const table = $(tableRef.current).DataTable();
-        return () => table.destroy(true);
+        fetchUsers();
     }, []);
 
-    const handleEdit = (row) => {
-        setCurrentData(row);
-        setShowModal(true);
-    };
+    // Initialize DataTable after users are loaded
+    useEffect(() => {
+        if (users.length) {
+            const table = $(tableRef.current).DataTable({
+                responsive: true,
+                pageLength: 10,
+                lengthMenu: [5, 10, 25, 50],
+                autoWidth: false,
+                columnDefs: [
+                    { orderable: false, targets: -1 } // Disable ordering on Action column
+                ],
+            });
+            return () => table.destroy(true);
+        }
+    }, [users]);
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setCurrentData((prev) => ({ ...prev, [name]: value }));
-    };
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        console.log('Updated Data:', currentData);
-        setShowModal(false);
-    };
+    // Filtered headers
+    const tableHeaders = users[0]
+        ? Object.keys(users[0]).filter((key) => !excludedFields.includes(key))
+        : [];
 
     return (
-        <MainCard
-            title={<h3 className="mb-0 text-center fw-bold">User List</h3>}
-        >
-            <div className="d-flex justify-content-end">
-                <Button variant="outline-primary">
+        <MainCard title={<h3 className="mb-0 text-center fw-bold">User List</h3>}>
+            {/* <div className="d-flex justify-content-end mb-3">
+                <Button variant="primary" size="sm" className="shadow-sm">
                     <i className="ti ti-user-plus me-1" />
-                    Add user
+                    Add User
                 </Button>
-            </div>
-            <table ref={tableRef} className="table table-striped table-bordered" style={{ width: '100%' }}>
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>First Name</th>
-                        <th>Last Name</th>
-                        <th>Username</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {[ // Example data
-                        { id: 1, firstName: 'Mark', lastName: 'Otto', username: '@ediy' },
-                        { id: 2, firstName: 'Jacob', lastName: 'Thornton', username: '@fat' },
-                        { id: 3, firstName: 'Larry', lastName: 'Bird', username: '@twitter' },
-                    ].map((row) => (
-                        <tr key={row.id}>
-                            <td>{row.id}</td>
-                            <td>{row.firstName}</td>
-                            <td>{row.lastName}</td>
-                            <td>{row.username}</td>
-                            <td>
-                                <Button variant="primary" size="sm" onClick={() => handleEdit(row)}>
-                                    Edit
-                                </Button>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+            </div> */}
 
-            {/* Modal */}
-            <Modal show={showModal} onHide={() => setShowModal(false)}>
-                <Modal.Header closeButton>
-                    <Modal.Title>Edit User</Modal.Title>
-                </Modal.Header>
-                <Form onSubmit={handleSubmit}>
-                    <Modal.Body>
-                        <Form.Group className="mb-3" controlId="firstName">
-                            <Form.Label>First Name</Form.Label>
-                            <Form.Control
-                                type="text"
-                                name="firstName"
-                                value={currentData.firstName}
-                                onChange={handleChange}
-                            />
-                        </Form.Group>
-                        <Form.Group className="mb-3" controlId="lastName">
-                            <Form.Label>Last Name</Form.Label>
-                            <Form.Control
-                                type="text"
-                                name="lastName"
-                                value={currentData.lastName}
-                                onChange={handleChange}
-                            />
-                        </Form.Group>
-                        <Form.Group className="mb-3" controlId="username">
-                            <Form.Label>Username</Form.Label>
-                            <Form.Control
-                                type="text"
-                                name="username"
-                                value={currentData.username}
-                                onChange={handleChange}
-                            />
-                        </Form.Group>
-                    </Modal.Body>
-                    <Modal.Footer>
-                        <Button variant="secondary" onClick={() => setShowModal(false)}>
-                            Close
-                        </Button>
-                        <Button type="submit" variant="primary">
-                            Save Changes
-                        </Button>
-                    </Modal.Footer>
-                </Form>
-            </Modal>
+            <div className="table-responsive shadow-sm rounded">
+                <table
+                    ref={tableRef}
+                    className="table table-striped table-hover table-bordered align-middle"
+                    style={{ width: '100%' }}
+                >
+                    <thead className="table-light">
+                        <tr>
+                            {tableHeaders.map((key) => (
+                                <th key={key} className="text-center text-capitalize">
+                                    {columnNames[key] || key}
+                                </th>
+                            ))}
+                            <th className="text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {users.map((row) => (
+                            <tr key={row.id} className="align-middle">
+                                {tableHeaders.map((key) => {
+                                    let value = row[key];
+
+                                    // Format date fields
+                                    if (key === 'createdAt') {
+                                        value = value ? new Date(value).toLocaleString() : '-';
+                                    }
+
+                                    return (
+                                        <td key={key} className="text-center">
+                                            {value !== null ? value : '-'}
+                                        </td>
+                                    );
+                                })}
+                                <td className="text-center">
+                                    <Button variant="secondary" size="sm" disabled>
+                                        Edit
+                                    </Button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </MainCard>
     );
 }
