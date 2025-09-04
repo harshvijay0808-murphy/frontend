@@ -70,6 +70,13 @@ const userManagegment = {
           type: 'item',
           url: '/user_management/roleRights'
         }
+        ,
+        {
+          id: 'customers',
+          title: 'customers',
+          type: 'item',
+          url: '/user_management/customers'
+        }
       ]
     }
   ]
